@@ -1,19 +1,27 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+@import "tailwindcss";
 
 html, body {
-  width: 100%;
-  height: 100%;
-  overflow-x: hidden;
-  background-color: #0d0e15;
-  color: #f3f4f6;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+  @apply w-full h-full overflow-x-hidden bg-[#0d0e15] text-[#f3f4f6] selection:bg-indigo-500 selection:text-white;
 }
 
 #app {
-  width: 100%;
-  min-height: 100%;
+  @apply w-full min-h-full;
+}
+
+/* Custom Lil-gui style override to blend it with dark premium UI */
+.lil-gui {
+  --background-color: rgba(15, 23, 42, 0.85) !important;
+  --text-color: #e2e8f0 !important;
+  --title-background-color: rgba(30, 41, 59, 0.5) !important;
+  --widget-color: rgba(51, 65, 85, 0.5) !important;
+  --hover-color: rgba(79, 70, 229, 0.5) !important;
+  --focus-color: #4f46e5 !important;
+  --number-color: #38bdf8 !important;
+  --string-color: #34d399 !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.5);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
