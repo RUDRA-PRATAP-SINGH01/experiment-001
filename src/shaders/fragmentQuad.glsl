@@ -9,7 +9,7 @@ void main() {
   // vec2 newUV = (vUv - vec2(0.5))*resolution.zw + vec2(0.5);
 
   vec4 c = texture2D(uTexture, vUv);
-  vec4 grain = texture2D(uGrain, vUv * 2.5);  //multiply here
+  vec4 grain = texture2D(uGrain, vUv);
 
   float dist = length(vUv - vec2(0.5));
   if (dist > 0.5) discard;
@@ -20,7 +20,7 @@ void main() {
   vec2 uvOut = dist < r ? vUv + mag_out * (vUv - vec2(0.5)) : vUv;
 
   // in edge
-  float g_in = pow(dist / r, -7.);
+  float g_in = pow(max(dist, 0.15) / r, -7.);
   vec2 g_in_power = vec2(sin(vUv.x - 0.5), sin(vUv.y - 0.5));
   float mag_in = 0.5 - cos(g_in - 1.);
   vec2 uvIn = dist > r ? vUv : (vUv - vec2(0.5)) * mag_in * g_in_power;
@@ -29,7 +29,7 @@ void main() {
   gl_FragColor = c;
   gl_FragColor = grain;
 
-  vec2 uv_display = vUv + uvOut * 0.1 + uvIn * .1 + (grain.rg - vec2(0.5)) * 0.1 * vUv.y;
+  vec2 uv_display = vUv + uvOut * 0.1 + uvIn * .1 + (grain.rg - vec2(0.5)) * 0.1;
 
   vec4 cc = texture2D(uTexture, uv_display);
 
