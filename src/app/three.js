@@ -239,16 +239,6 @@ export default class Sketch {
           mesh.traverse((child) => {
             if (child.isMesh) {
               child.material = this.material;
-              if (child.geometry && child.geometry.attributes.uv) {
-                let uv = child.geometry.attributes.uv.array;
-                for (let i = 0; i < uv.length; i += 4) {
-                  uv[i] = 0;
-                  uv[i + 1] = 0;
-                  uv[i + 2] = 1;
-                  uv[i + 3] = 0;
-                }
-                child.geometry.attributes.uv.needsUpdate = true;
-              }
             }
           });
 
@@ -296,7 +286,7 @@ export default class Sketch {
     // Step 4: Render circle/grain finalScene to screen
     this.renderer.render(this.finalScene, this.finalCamera);
 
-    this.target.lerp(this.mouse, 0.1);
+    this.target.lerp(this.mouse, 0.05);
 
     this.finalScene.position.y = this.target.y / 5;
     this.finalScene.position.x = this.target.x / 5;
