@@ -1,15 +1,3 @@
-@import 'tailwindcss';
-@import 'tw-animate-css';
-
-@theme inline {
-  --color-primary: #ffffff;
-  --color-secondary: #171717;
-  --color-tertiary: #404040;
-  --color-color: #f3f3f3;
-  --color-accent-primary: #2563eb;
-  --color-accent-primary-state: #1d4ed8;
-}
-
 html,
 body {
   width: 100%;
@@ -17,6 +5,7 @@ body {
   margin: 0;
   padding: 0;
   overflow: hidden;
+  background: #3d7a5c;
 }
 
 #container,
@@ -26,23 +15,39 @@ body {
   left: 0;
   width: 100% !important;
   height: 100% !important;
+  background: #3d7a5c;
 }
 
-.lil-gui {
-  --background-color: rgba(15, 23, 42, 0.85) !important;
-  --text-color: #e2e8f0 !important;
-  --title-background-color: rgba(30, 41, 59, 0.5) !important;
-  --widget-color: rgba(51, 65, 85, 0.5) !important;
-  --hover-color: rgba(79, 70, 229, 0.5) !important;
-  --focus-color: #2563eb !important;
-  --number-color: #38bdf8 !important;
-  --string-color: #34d399 !important;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow:
-    0 20px 25px -5px rgb(0 0 0 / 0.5),
-    0 8px 10px -6px rgb(0 0 0 / 0.5);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+.hero-title {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-left: 2.5rem;
+  pointer-events: none;
+  z-index: 10;
+  user-select: none;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.hero-title.is-ready {
+  opacity: 1;
+}
+
+.hero-title h1 {
+  margin: 0;
+  font-size: 11vw;
+  font-weight: 900;
+  line-height: 0.82;
+  letter-spacing: -0.05em;
+  color: #ffffff;
+  font-family: Arial Black, Arial, Helvetica, sans-serif;
+}
+
+@media (min-width: 768px) {
+  .hero-title {
+    padding-left: 6rem;
+  }
 }

@@ -4,14 +4,32 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>rewind.git</title>
+  <style>
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #3d7a5c;
+    }
+    #container, #container canvas {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      background: #3d7a5c;
+    }
+    .hero-title {
+      opacity: 0;
+    }
+  </style>
 </head>
 <body>
   <div id="container"></div>
 
-  <div class="absolute inset-0 flex flex-col justify-center pl-10 md:pl-24 pointer-events-none z-10 select-none">
-    <h1 class="text-[11vw] font-black leading-[0.82] tracking-tighter text-white font-sans">
-      rewind.<br>git
-    </h1>
+  <div class="hero-title" id="hero-title">
+    <h1>rewind.<br>git</h1>
   </div>
 
   <script type="module" src="/src/main.js"></script>
