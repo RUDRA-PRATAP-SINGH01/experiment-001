@@ -33,8 +33,9 @@ void main() {
 
   vec4 cc = texture2D(uTexture, uv_display);
 
-  gl_FragColor = vec4(uvOut, 0., 1.);
-  gl_FragColor = vec4(vec3(mag_in), 1.);
-  gl_FragColor = vec4(vec3(vUv, 0.), 1.);
+  if (dist > 0.493) {
+    cc = vec4(1.0, 1.0, 1.0, 1.0);
+  }
+
   gl_FragColor = cc;
 }

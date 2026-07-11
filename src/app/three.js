@@ -20,15 +20,15 @@ export default class Sketch {
     this.scene = new THREE.Scene();
 
     this.container = options.dom;
-    this.width = this.container.offsetWidth;
-    this.height = this.container.offsetHeight;
+    this.width = this.container.offsetWidth || window.innerWidth;
+    this.height = this.container.offsetHeight || window.innerHeight;
     this.renderer = new THREE.WebGLRenderer({
       antialias: true
       // alpha: true
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(this.width, this.height);
-    this.renderer.setClearColor(0xee_ee_ee, 1);
+    this.renderer.setClearColor(0xffffff, 1);
     this.renderer.physicallyCorrectLights = true;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 
@@ -92,7 +92,7 @@ export default class Sketch {
       fragmentShader: fragmentQuad
     });
 
-    this.dummy = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.materialQuad);
+    this.dummy = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.8), this.materialQuad);
     this.finalScene.add(this.dummy);
 
     this.blackBackground = new THREE.Mesh(
