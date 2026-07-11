@@ -1,3 +1,27 @@
+@font-face {
+  font-family: "Poppins";
+  src: url("/fonts/poppins-regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Poppins";
+  src: url("/fonts/poppins-semibold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Manrope";
+  src: url("/fonts/manrope-extralight.woff2") format("woff2");
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+
 html,
 body {
   width: 100%;
@@ -5,7 +29,7 @@ body {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  background: #3d7a5c;
+  background: #358107;
 }
 
 #container,
@@ -15,7 +39,7 @@ body {
   left: 0;
   width: 100% !important;
   height: 100% !important;
-  background: #3d7a5c;
+  background: #358107;
 }
 
 .hero-title {
@@ -39,11 +63,11 @@ body {
 .hero-title h1 {
   margin: 0;
   font-size: 11vw;
-  font-weight: 900;
+  font-weight: 600;
   line-height: 0.82;
   letter-spacing: -0.05em;
   color: #ffffff;
-  font-family: Arial Black, Arial, Helvetica, sans-serif;
+  font-family: "Poppins", sans-serif;
 }
 
 @media (min-width: 768px) {

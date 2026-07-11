@@ -1,13 +1,29 @@
 uniform float time;
 uniform float progress;
 uniform sampler2D uTexture;
+uniform sampler2D uStreakEnv;
 uniform vec4 resolution;
 varying vec2 vUv;
 varying vec3 vPosition;
-float PI = 3.141592653589793238;
+varying vec3 vNormal;
+varying vec3 vViewPosition;
 
 void main() {
-  // vec2 newUV = (vUv - vec2(0.5))*resolution.zw + vec2(0.5);
-  vec4 c = texture2D(uTexture, vUv);
-  gl_FragColor = vec4(c.rgb, 1.0);
+  vec3 N = normalize(vNormal);
+  vec3 V = normalize(vViewPosition);
+  float ndotv = clamp(dot(N, V), 0.0, 1.0);
+
+  /* matcap — hottest ticks only, modulates the rim */
+  vec2 matcapUV = N.xy * 0.5 + 0.5;
+  float lum = dot(texture2D(uTexture, matcapUV).rgb, vec3(0.299, 0.587, 0.114));
+  float texEdge = pow(smoothstep(0.85, 0.98, lum), 1.6);
+
+  /* thin white rim on pure black body */
+  float rim = pow(1.0 - ndotv, 5.5);
+  float edge = rim * mix(0.85, 1.35, texEdge);
+
+  /* crush fill to black; keep a crisp readable white line */
+  float highlight = smoothstep(0.18, 0.42, edge);
+
+  gl_FragColor = vec4(vec3(highlight), 1.0);
 }

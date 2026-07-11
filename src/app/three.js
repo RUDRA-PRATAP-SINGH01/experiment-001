@@ -2,14 +2,16 @@ import * as THREE from 'three';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
+import chamberStreak from '../shaders/chamberStreak.glsl';
 import fragment from '../shaders/fragment.glsl';
 import fragmentQuad from '../shaders/fragmentQuad.glsl';
 import vertex from '../shaders/vertex.glsl';
 import { AberrationShader } from './effect2.js';
 
-const model = '/gdn8-logo-v3.glb';
+const model = '/copilot.glb';
 const modelTexture = '/model@2x.jpg.webp';
 const grain = '/gr-2@mob.jpg.webp';
+const MODEL_TARGET_SIZE = 1.78;
 
 export default class Sketch {
   constructor(options) {
@@ -46,7 +48,6 @@ export default class Sketch {
     this.camera.lookAt(0, 0, 0);
     this.time = 0;
 
-    // Parallax moves this group only — model stays face-on at local origin
     this.modelPivot = new THREE.Group();
     this.scene.add(this.modelPivot);
 
@@ -60,12 +61,68 @@ export default class Sketch {
 
     this.isPlaying = true;
     this.mouseEvents();
+    this.initChamber();
     this.initFinalScene();
     this.addObjects();
     this.resize();
     this.initPost();
     this.render();
     this.setupResize();
+  }
+
+  /** Procedural emerald glass chamber — env RT + layered planes (memoized geometry). */
+  initChamber() {
+    const rt = this.getRTSize();
+    this.streakTarget = new THREE.WebGLRenderTarget(rt.w, rt.h, {
+      minFilter: THREE.LinearFilter,
+      magFilter: THREE.LinearFilter
+    });
+
+    this._chamberGeo = new THREE.PlaneGeometry(2, 2);
+
+    this.chamberUniforms = {
+      time: { value: 0 },
+      uLayer: { value: 0 },
+      resolution: { value: new THREE.Vector4() }
+    };
+
+    this.chamberMaterial = new THREE.ShaderMaterial({
+      extensions: {
+        derivatives: '#extension GL_OES_standard_derivatives : enable'
+      },
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      uniforms: this.chamberUniforms,
+      vertexShader: vertex,
+      fragmentShader: chamberStreak
+    });
+
+    this.chamberScene = new THREE.Scene();
+    this.chamberQuad = new THREE.Mesh(this._chamberGeo, this.chamberMaterial);
+    this.chamberScene.add(this.chamberQuad);
+    this.chamberCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, -100, 100);
+  }
+
+  /** Bake back + mid streak layers into streakTarget for refraction / background. */
+  renderStreakEnv() {
+    if (!this.streakTarget || !this.chamberMaterial) return;
+
+    const prevAutoClear = this.renderer.autoClear;
+    this.renderer.autoClear = false;
+
+    this.renderer.setRenderTarget(this.streakTarget);
+    this.renderer.setClearColor(0x358107, 0.0);
+    this.renderer.clear();
+
+    this.chamberUniforms.uLayer.value = 0;
+    this.renderer.render(this.chamberScene, this.chamberCamera);
+
+    this.chamberUniforms.uLayer.value = 1;
+    this.renderer.render(this.chamberScene, this.chamberCamera);
+
+    this.renderer.autoClear = prevAutoClear;
+    this.renderer.setClearColor(0x000000, 0);
   }
 
   initFinalScene() {
@@ -90,6 +147,7 @@ export default class Sketch {
         time: { value: 0 },
         resolution: { value: new THREE.Vector4() },
         uTexture: { value: null },
+        uStreakEnv: { value: null },
         uGrain: { value: grainTexture }
       },
       transparent: true,
@@ -98,7 +156,7 @@ export default class Sketch {
       fragmentShader: fragmentQuad
     });
 
-    this.dummy = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.materialQuad);
+    this.dummy = new THREE.Mesh(this._chamberGeo || new THREE.PlaneGeometry(2, 2), this.materialQuad);
     this.finalScene.add(this.dummy);
     this.updatePlaneScale();
   }
@@ -108,12 +166,10 @@ export default class Sketch {
   }
 
   mouseEvents() {
-    // Track mouse over the full window so parallax always follows cursor direction
     window.addEventListener('pointermove', (e) => {
       const rect = this.container.getBoundingClientRect();
       const w = Math.max(rect.width, 1);
       const h = Math.max(rect.height, 1);
-      // -1..+1, same direction as screen (right = +, up = +)
       this.mouse.x = ((e.clientX - rect.left) / w) * 2 - 1;
       this.mouse.y = -(((e.clientY - rect.top) / h) * 2 - 1);
       this.pointerActive = true;
@@ -154,6 +210,7 @@ export default class Sketch {
     const rt = this.getRTSize();
     if (this.renderTarget) this.renderTarget.setSize(rt.w, rt.h);
     if (this.aberratedTarget) this.aberratedTarget.setSize(rt.w, rt.h);
+    if (this.streakTarget) this.streakTarget.setSize(rt.w, rt.h);
 
     if (this.finalCamera) {
       this.finalCamera.left = -aspect;
@@ -163,11 +220,15 @@ export default class Sketch {
 
     this.updatePlaneScale();
 
+    const res = new THREE.Vector4(this.width, this.height, aspect, 1 / aspect);
     if (this.materialQuad?.uniforms?.resolution) {
-      this.materialQuad.uniforms.resolution.value.set(this.width, this.height, aspect, 1 / aspect);
+      this.materialQuad.uniforms.resolution.value.copy(res);
     }
     if (this.material?.uniforms?.resolution) {
-      this.material.uniforms.resolution.value.set(this.width, this.height, aspect, 1 / aspect);
+      this.material.uniforms.resolution.value.copy(res);
+    }
+    if (this.chamberUniforms?.resolution) {
+      this.chamberUniforms.resolution.value.copy(res);
     }
   }
 
@@ -191,13 +252,15 @@ export default class Sketch {
       fragmentShader: AberrationShader.fragmentShader
     });
 
-    const aberrationQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.effectPass1);
+    const aberrationQuad = new THREE.Mesh(
+      this._chamberGeo || new THREE.PlaneGeometry(2, 2),
+      this.effectPass1
+    );
     this.aberrationScene = new THREE.Scene();
     this.aberrationScene.add(aberrationQuad);
     this.aberrationCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, -100, 100);
   }
 
-  /** Place object so its world AABB center is at the origin. */
   centerObject(object) {
     object.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(object);
@@ -214,12 +277,17 @@ export default class Sketch {
       extensions: {
         derivatives: '#extension GL_OES_standard_derivatives : enable'
       },
-      side: THREE.DoubleSide,
+      side: THREE.FrontSide,
       uniforms: {
         time: { value: 0 },
         progress: { value: 0 },
         resolution: { value: new THREE.Vector4() },
-        uTexture: { value: new THREE.TextureLoader().load(modelTexture) }
+        uTexture: {
+          value: new THREE.TextureLoader().load(modelTexture, (tex) => {
+            tex.colorSpace = THREE.SRGBColorSpace;
+          })
+        },
+        uStreakEnv: { value: null }
       },
       vertexShader: vertex,
       fragmentShader: fragment
@@ -228,43 +296,32 @@ export default class Sketch {
     this.gltf.load(
       model,
       (gltf) => {
-        // Use the mesh directly (same as landing page) for predictable centering
-        const root = gltf.scene.children[0] || gltf.scene;
-        root.scale.setScalar(0.0105);
+        const root = gltf.scene;
         root.position.set(0, 0, 0);
-        root.rotation.set(0, 0, 0);
+        root.scale.setScalar(1);
+        // Glasses / faceplate face local +X → yaw so they look at the camera (+Z)
+        root.rotation.set(0, -Math.PI / 2, 0);
 
-        // Bake geometry so the mesh origin is the visual AABB center
-        root.traverse((child) => {
-          if (!child.isMesh || !child.geometry) return;
-          child.geometry.computeBoundingBox();
-          child.geometry.center();
-          child.geometry.computeBoundingSphere();
-        });
-
+        // Keep rabbit matcap texture (model@2x)
         this.modelPivot.clear();
         this.modelPivot.add(root);
 
-        // Final world-space nudge in case of nested transforms
-        this.centerObject(root);
-        this.centerObject(root);
+        // Fit to a consistent on-screen size
+        root.updateMatrixWorld(true);
+        const fitBox = new THREE.Box3().setFromObject(root);
+        const size = fitBox.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z, 1e-6);
+        root.scale.setScalar(MODEL_TARGET_SIZE / maxDim);
 
-        // Optical Y: AABB center sits below the visual head mass
-        root.position.y += 0.28;
+        this.centerObject(root);
+        this.centerObject(root);
 
         root.traverse((child) => {
           if (!child.isMesh) return;
           child.material = this.material;
-          const uvAttr = child.geometry?.attributes?.uv;
-          if (!uvAttr) return;
-          const uv = uvAttr.array;
-          for (let i = 0; i < uv.length; i += 4) {
-            uv[i] = 0;
-            uv[i + 1] = 0;
-            uv[i + 2] = 1;
-            uv[i + 3] = 0;
+          if (child.geometry && !child.geometry.attributes.normal) {
+            child.geometry.computeVertexNormals();
           }
-          uvAttr.needsUpdate = true;
         });
 
         this.mesh = root;
@@ -298,13 +355,13 @@ export default class Sketch {
 
     if (this.material) this.material.uniforms.time.value = this.time;
     if (this.materialQuad) this.materialQuad.uniforms.time.value = this.time;
+    if (this.chamberUniforms) this.chamberUniforms.time.value = this.time;
+    if (this.effectPass1) this.effectPass1.uniforms.time.value = this.time;
 
-    // Face-on framing: camera looks straight at world origin
     this.camera.position.set(0, 0, this.baseCameraZ);
     this.camera.up.set(0, 1, 0);
     this.camera.lookAt(0, 0, 0);
 
-    // Soft parallax — same direction as the mouse (right → right, up → up)
     if (!this.pointerActive) this.mouse.set(0, 0);
     this.target.lerp(this.mouse, 0.1);
     if (this.modelPivot) {
@@ -316,18 +373,23 @@ export default class Sketch {
 
     if (!this.effectPass1 || !this.aberrationScene || !this.aberrationCamera) return;
 
+    // 0) Emerald glass streak environment (back + mid)
+    this.renderStreakEnv();
+    if (this.material) this.material.uniforms.uStreakEnv.value = this.streakTarget.texture;
+    if (this.materialQuad) this.materialQuad.uniforms.uStreakEnv.value = this.streakTarget.texture;
+
     // 1) Model → RT
     this.renderer.setRenderTarget(this.renderTarget);
     this.renderer.clear();
     this.renderer.render(this.scene, this.camera);
 
-    // 2) Aberration
+    // 2) Restrained aberration
     this.effectPass1.uniforms.tDiffuse.value = this.renderTarget.texture;
     this.renderer.setRenderTarget(this.aberratedTarget);
     this.renderer.clear();
     this.renderer.render(this.aberrationScene, this.aberrationCamera);
 
-    // 3) Compose to screen
+    // 3) Compose: chamber bg + model glass + FG bands
     this.materialQuad.uniforms.uTexture.value = this.aberratedTarget.texture;
     this.renderer.setRenderTarget(null);
     this.renderer.clear();

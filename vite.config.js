@@ -1,15 +1,15 @@
-import { defineConfig } from 'vite';
-import glsl from 'vite-plugin-glsl';
+import { defineConfig } from "vite";
+import glsl from "vite-plugin-glsl";
 
 export default defineConfig({
   plugins: [glsl()],
   build: {
-    outDir: 'dist',
+    outDir: "dist",
     emptyOutDir: true,
-    sourcemap: false
+    sourcemap: false,
   },
   server: {
     port: 5173,
-    strictPort: true
-  }
+    strictPort: true,
+  },
 });
