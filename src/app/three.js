@@ -40,7 +40,7 @@ export default class Sketch {
     this.target = new THREE.Vector2(0, 0);
     this.mouse = new THREE.Vector2(0, 0);
 
-    this.camera.position.set(0, 0, 1.5);
+    this.camera.position.set(0, 0, 1.25);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.time = 0;
 
@@ -92,7 +92,7 @@ export default class Sketch {
       fragmentShader: fragmentQuad
     });
 
-    this.dummy = new THREE.Mesh(new THREE.PlaneGeometry(1.8, 1.8), this.materialQuad);
+    this.dummy = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.2), this.materialQuad);
     this.finalScene.add(this.dummy);
 
     this.blackBackground = new THREE.Mesh(
@@ -137,7 +137,7 @@ export default class Sketch {
 
     // Offscreen camera — square aspect so model is never squished
     this.camera.aspect = 1;
-    this.camera.position.set(0, 0, 1.5);
+    this.camera.position.set(0, 0, 1.25);
     this.camera.updateProjectionMatrix();
 
     // Render target stays square
