@@ -44,8 +44,6 @@ export default class Sketch {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.time = 0;
 
-    // Offscreen render target — always square so model is never squished
-    this.renderTarget = new THREE.WebGLRenderTarget(1024, 1024);
 
     this.dracoLoader = new DRACOLoader();
     this.dracoLoader.setDecoderPath('/draco/gltf/');
@@ -135,14 +133,15 @@ export default class Sketch {
     this.height = this.container.offsetHeight;
     this.renderer.setSize(this.width, this.height);
 
-    // Offscreen camera — square aspect so model is never squished
-    this.camera.aspect = 1;
+    this.camera.aspect = this.width / this.height;
     this.camera.position.set(0, 0, 1.25);
     this.camera.updateProjectionMatrix();
 
-    // Render target stays square
     if (this.renderTarget) {
-      this.renderTarget.setSize(1024, 1024);
+      this.renderTarget.setSize(this.width / 2, this.height / 2);
+    }
+    if (this.aberratedTarget) {
+      this.aberratedTarget.setSize(this.width / 2, this.height / 2);
     }
 
     // Final ortho camera adjusts for window aspect so the quad fills correctly
@@ -164,8 +163,7 @@ export default class Sketch {
   }
 
   initPost() {
-    // Separate square target for aberrated model output (same size as renderTarget)
-    this.aberratedTarget = new THREE.WebGLRenderTarget(1024, 1024);
+    this.aberratedTarget = new THREE.WebGLRenderTarget(this.width / 2, this.height / 2);
 
     // Aberration applied as a full-screen quad BEFORE the circle/grain finalScene
     // This ensures aberration is only on the model, NOT the white circle border
@@ -185,6 +183,7 @@ export default class Sketch {
   }
 
   addObjects() {
+    this.renderTarget = new THREE.WebGLRenderTarget(this.width / 2, this.height / 2);
     this.material = new THREE.ShaderMaterial({
       extensions: {
         derivatives: '#extension GL_OES_standard_derivatives : enable'
