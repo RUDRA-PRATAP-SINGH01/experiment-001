@@ -1,4 +1,3 @@
-import GUI from 'lil-gui';
 import * as THREE from 'three';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -19,6 +18,7 @@ export default class Sketch {
     this.container = options.dom;
     this.width = this.container.offsetWidth || window.innerWidth;
     this.height = this.container.offsetHeight || window.innerHeight;
+
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
       alpha: true
@@ -28,22 +28,25 @@ export default class Sketch {
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.setClearAlpha(0);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-
     this.container.append(this.renderer.domElement);
 
-    this.camera = new THREE.PerspectiveCamera(70, this.width / Math.max(this.height, 1), 0.01, 100);
+    this.camera = new THREE.PerspectiveCamera(
+      70,
+      this.width / Math.max(this.height, 1),
+      0.01,
+      100
+    );
 
-    // Mouse parallax tracking — starts centered
     this.target = new THREE.Vector2(0, 0);
     this.mouse = new THREE.Vector2(0, 0);
     this.pointerActive = false;
 
-    this.baseCameraZ = 1.75;
+    this.baseCameraZ = 1.85;
     this.camera.position.set(0, 0, this.baseCameraZ);
     this.camera.lookAt(0, 0, 0);
     this.time = 0;
 
-    // Pivot keeps the model centered; parallax moves this group only
+    // Parallax moves this group only — model stays face-on at local origin
     this.modelPivot = new THREE.Group();
     this.scene.add(this.modelPivot);
 
@@ -95,20 +98,9 @@ export default class Sketch {
       fragmentShader: fragmentQuad
     });
 
-    // Full-screen transparent plane — green comes from the page behind the canvas
     this.dummy = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.materialQuad);
     this.finalScene.add(this.dummy);
     this.updatePlaneScale();
-  }
-
-  settings() {
-    this.settings = {
-      progress: 0
-    };
-    this.gui = new GUI();
-    this.gui.add(this.settings, 'progress', 0, 1, 0.01).onChange((val) => {
-      this.material.uniforms.progress.value = val;
-    });
   }
 
   setupResize() {
@@ -116,24 +108,25 @@ export default class Sketch {
   }
 
   mouseEvents() {
-    const el = this.renderer.domElement;
-
-    el.addEventListener('pointerenter', () => {
+    // Track mouse over the full window so parallax always follows cursor direction
+    window.addEventListener('pointermove', (e) => {
+      const rect = this.container.getBoundingClientRect();
+      const w = Math.max(rect.width, 1);
+      const h = Math.max(rect.height, 1);
+      // -1..+1, same direction as screen (right = +, up = +)
+      this.mouse.x = ((e.clientX - rect.left) / w) * 2 - 1;
+      this.mouse.y = -(((e.clientY - rect.top) / h) * 2 - 1);
       this.pointerActive = true;
     });
 
-    el.addEventListener('pointerleave', () => {
+    window.addEventListener('pointerleave', () => {
       this.pointerActive = false;
-      // Return model to exact center when pointer leaves
       this.mouse.set(0, 0);
     });
 
-    el.addEventListener('pointermove', (e) => {
-      const rect = el.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / Math.max(rect.width, 1);
-      const y = (e.clientY - rect.top) / Math.max(rect.height, 1);
-      this.mouse.x = x * 2 - 1;
-      this.mouse.y = -(y * 2 - 1);
+    document.addEventListener('mouseleave', () => {
+      this.pointerActive = false;
+      this.mouse.set(0, 0);
     });
   }
 
@@ -159,25 +152,21 @@ export default class Sketch {
     this.camera.updateProjectionMatrix();
 
     const rt = this.getRTSize();
-    if (this.renderTarget) {
-      this.renderTarget.setSize(rt.w, rt.h);
-    }
-    if (this.aberratedTarget) {
-      this.aberratedTarget.setSize(rt.w, rt.h);
-    }
+    if (this.renderTarget) this.renderTarget.setSize(rt.w, rt.h);
+    if (this.aberratedTarget) this.aberratedTarget.setSize(rt.w, rt.h);
 
     if (this.finalCamera) {
-      this.finalCamera.left = -1 * aspect;
-      this.finalCamera.right = 1 * aspect;
+      this.finalCamera.left = -aspect;
+      this.finalCamera.right = aspect;
       this.finalCamera.updateProjectionMatrix();
     }
 
     this.updatePlaneScale();
 
-    if (this.materialQuad && this.materialQuad.uniforms.resolution) {
+    if (this.materialQuad?.uniforms?.resolution) {
       this.materialQuad.uniforms.resolution.value.set(this.width, this.height, aspect, 1 / aspect);
     }
-    if (this.material && this.material.uniforms.resolution) {
+    if (this.material?.uniforms?.resolution) {
       this.material.uniforms.resolution.value.set(this.width, this.height, aspect, 1 / aspect);
     }
   }
@@ -185,7 +174,6 @@ export default class Sketch {
   updatePlaneScale() {
     if (!this.dummy) return;
     const aspect = this.width / Math.max(this.height, 1);
-    // Ortho frustum is (-aspect..aspect) x (-1..1); 2x2 plane → scale X by aspect
     this.dummy.scale.set(aspect, 1, 1);
   }
 
@@ -193,8 +181,6 @@ export default class Sketch {
     const rt = this.getRTSize();
     this.aberratedTarget = new THREE.WebGLRenderTarget(rt.w, rt.h);
 
-    // Aberration applied as a full-screen quad BEFORE the circle/grain finalScene
-    // This ensures aberration is only on the model, NOT the white circle border
     this.effectPass1 = new THREE.ShaderMaterial({
       uniforms: {
         tDiffuse: { value: null },
@@ -204,10 +190,23 @@ export default class Sketch {
       vertexShader: AberrationShader.vertexShader,
       fragmentShader: AberrationShader.fragmentShader
     });
+
     const aberrationQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.effectPass1);
     this.aberrationScene = new THREE.Scene();
     this.aberrationScene.add(aberrationQuad);
     this.aberrationCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, -100, 100);
+  }
+
+  /** Place object so its world AABB center is at the origin. */
+  centerObject(object) {
+    object.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(object);
+    if (box.isEmpty()) return;
+    const center = box.getCenter(new THREE.Vector3());
+    object.position.x -= center.x;
+    object.position.y -= center.y;
+    object.position.z -= center.z;
+    object.updateMatrixWorld(true);
   }
 
   addObjects() {
@@ -229,44 +228,43 @@ export default class Sketch {
     this.gltf.load(
       model,
       (gltf) => {
-        const root = gltf.scene;
+        // Use the mesh directly (same as landing page) for predictable centering
+        const root = gltf.scene.children[0] || gltf.scene;
         root.scale.setScalar(0.0105);
         root.position.set(0, 0, 0);
         root.rotation.set(0, 0, 0);
 
+        // Bake geometry so the mesh origin is the visual AABB center
+        root.traverse((child) => {
+          if (!child.isMesh || !child.geometry) return;
+          child.geometry.computeBoundingBox();
+          child.geometry.center();
+          child.geometry.computeBoundingSphere();
+        });
+
+        this.modelPivot.clear();
         this.modelPivot.add(root);
-        root.updateMatrixWorld(true);
 
-        const box = new THREE.Box3().setFromObject(root);
-        const center = box.getCenter(new THREE.Vector3());
-        root.position.set(-center.x, -center.y, -center.z);
+        // Final world-space nudge in case of nested transforms
+        this.centerObject(root);
+        this.centerObject(root);
 
-        // Second pass to absorb nested GLTF offsets
-        root.updateMatrixWorld(true);
-        box.setFromObject(root);
-        box.getCenter(center);
-        root.position.x -= center.x;
-        root.position.y -= center.y;
-        root.position.z -= center.z;
-
-        // Push into the open center-right so the left title doesn't pin it visually left
-        root.position.x += 0.4;
-        root.position.y += 0.06;
+        // Optical Y: AABB center sits below the visual head mass
+        root.position.y += 0.28;
 
         root.traverse((child) => {
-          if (child.isMesh) {
-            child.material = this.material;
-            if (child.geometry && child.geometry.attributes.uv) {
-              const uv = child.geometry.attributes.uv.array;
-              for (let i = 0; i < uv.length; i += 4) {
-                uv[i] = 0;
-                uv[i + 1] = 0;
-                uv[i + 2] = 1;
-                uv[i + 3] = 0;
-              }
-              child.geometry.attributes.uv.needsUpdate = true;
-            }
+          if (!child.isMesh) return;
+          child.material = this.material;
+          const uvAttr = child.geometry?.attributes?.uv;
+          if (!uvAttr) return;
+          const uv = uvAttr.array;
+          for (let i = 0; i < uv.length; i += 4) {
+            uv[i] = 0;
+            uv[i + 1] = 0;
+            uv[i + 2] = 1;
+            uv[i + 3] = 0;
           }
+          uvAttr.needsUpdate = true;
         });
 
         this.mesh = root;
@@ -296,41 +294,43 @@ export default class Sketch {
   render() {
     if (!this.isPlaying) return;
     this.time += 0.05;
-    if (this.material) this.material.uniforms.time.value = this.time;
     requestAnimationFrame(this.render.bind(this));
 
-    // Lock camera to viewport center every frame
+    if (this.material) this.material.uniforms.time.value = this.time;
+    if (this.materialQuad) this.materialQuad.uniforms.time.value = this.time;
+
+    // Face-on framing: camera looks straight at world origin
     this.camera.position.set(0, 0, this.baseCameraZ);
     this.camera.up.set(0, 1, 0);
     this.camera.lookAt(0, 0, 0);
 
-    this.target.lerp(this.mouse, 0.08);
+    // Soft parallax — same direction as the mouse (right → right, up → up)
+    if (!this.pointerActive) this.mouse.set(0, 0);
+    this.target.lerp(this.mouse, 0.1);
     if (this.modelPivot) {
-      // Opposite of cursor (landing page); softer so resting pose stays centered
-      this.modelPivot.position.x = -this.target.x / 5;
-      this.modelPivot.position.y = -this.target.y / 5;
+      this.modelPivot.position.x = this.target.x / 6;
+      this.modelPivot.position.y = this.target.y / 6;
     }
     this.scene.position.set(0, 0, 0);
+    this.finalScene.position.set(0, 0, 0);
 
-    // Step 1: Render 3D model to renderTarget
+    if (!this.effectPass1 || !this.aberrationScene || !this.aberrationCamera) return;
+
+    // 1) Model → RT
     this.renderer.setRenderTarget(this.renderTarget);
     this.renderer.clear();
     this.renderer.render(this.scene, this.camera);
 
-    // Step 2: Apply aberration
+    // 2) Aberration
     this.effectPass1.uniforms.tDiffuse.value = this.renderTarget.texture;
     this.renderer.setRenderTarget(this.aberratedTarget);
     this.renderer.clear();
     this.renderer.render(this.aberrationScene, this.aberrationCamera);
 
-    // Step 3: Feed aberrated model into the fullscreen materialQuad
+    // 3) Compose to screen
     this.materialQuad.uniforms.uTexture.value = this.aberratedTarget.texture;
     this.renderer.setRenderTarget(null);
     this.renderer.clear();
-
-    this.finalScene.position.set(0, 0, 0);
-
-    // Step 4: Render finalScene to screen
     this.renderer.render(this.finalScene, this.finalCamera);
   }
 }
