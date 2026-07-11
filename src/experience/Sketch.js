@@ -4,14 +4,14 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
-import fragment from '../shaders/fragment.glsl';
-import fragmentQuad from '../shaders/fragmentQuad.glsl';
-import vertex from '../shaders/vertex.glsl';
-import { AberrationShader } from './effect2.js';
+import fragment from '@/shaders/fragment.glsl';
+import fragmentQuad from '@/shaders/fragmentQuad.glsl';
+import vertex from '@/shaders/vertex.glsl';
+import { AberrationShader } from '@/experience/AberrationShader.js';
 
-const model = '/gdn8-logo-v3.glb';
-const modelTexture = '/model@2x.jpg.webp';
-const grain = '/gr-2@mob.jpg.webp';
+const model = '/models/gdn8-logo-v3.glb';
+const modelTexture = '/textures/model@2x.jpg.webp';
+const grain = '/textures/gr-2@mob.jpg.webp';
 
 // const scroller = new VirtualScroll();
 
@@ -28,7 +28,7 @@ export default class Sketch {
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(this.width, this.height, false);
-    this.renderer.setClearColor(0xffffff, 1);
+    this.renderer.setClearColor(0x1a4d3a, 1);
     // three r155+: use useLegacyLights instead of physicallyCorrectLights
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 
@@ -49,7 +49,6 @@ export default class Sketch {
 
 
     this.dracoLoader = new DRACOLoader();
-    this.dracoLoader.setDecoderPath('/draco/gltf/');
     this.gltf = new GLTFLoader();
     this.gltf.setDRACOLoader(this.dracoLoader);
 
@@ -99,7 +98,7 @@ export default class Sketch {
 
     this.blackBackground = new THREE.Mesh(
       new THREE.PlaneGeometry(1, 1),
-      new THREE.MeshBasicMaterial({ color: '#000000' })
+      new THREE.MeshBasicMaterial({ color: '#1a4d3a' })
     );
     this.blackBackground.position.z = -1;
     this.finalScene.add(this.blackBackground);
@@ -335,21 +334,23 @@ export default class Sketch {
     this.material.uniforms.time.value = this.time;
     requestAnimationFrame(this.render.bind(this));
 
-    // Step 1: Render 3D model to square renderTarget (1024x1024)
+    // Step 1: Render 3D model to renderTarget
     this.renderer.setRenderTarget(this.renderTarget);
+    this.renderer.clear();
     this.renderer.render(this.scene, this.camera);
 
     // Step 2: Apply aberration — renderTarget → aberratedTarget
-    // Aberration is on the MODEL only, not the circle border
     this.effectPass1.uniforms.tDiffuse.value = this.renderTarget.texture;
     this.renderer.setRenderTarget(this.aberratedTarget);
+    this.renderer.clear();
     this.renderer.render(this.aberrationScene, this.aberrationCamera);
 
-    // Step 3: Feed aberrated model into the circle/grain materialQuad
+    // Step 3: Feed aberrated model into the grain materialQuad
     this.materialQuad.uniforms.uTexture.value = this.aberratedTarget.texture;
     this.renderer.setRenderTarget(null);
+    this.renderer.clear();
 
-    // Step 4: Render circle/grain finalScene to screen
+    // Step 4: Render finalScene to screen
     this.renderer.render(this.finalScene, this.finalCamera);
 
     this.target.lerp(this.mouse, 0.05);

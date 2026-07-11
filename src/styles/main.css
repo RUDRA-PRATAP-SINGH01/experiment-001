@@ -2,12 +2,12 @@
 @import 'tw-animate-css';
 
 @theme inline {
-  --color-primary: #ffffff; /* white background */
-  --color-secondary: #171717; /* neutral-900 */
-  --color-tertiary: #404040; /* neutral-700 */
+  --color-primary: #ffffff;
+  --color-secondary: #171717;
+  --color-tertiary: #404040;
   --color-color: #f3f3f3;
-  --color-accent-primary: #2563eb; /* blue-600 */
-  --color-accent-primary-state: #1d4ed8; /* blue-700 */
+  --color-accent-primary: #2563eb;
+  --color-accent-primary-state: #1d4ed8;
 }
 
 html,
@@ -28,35 +28,6 @@ body {
   height: 100% !important;
 }
 
-.github-corner:hover .octo-arm {
-  animation: octocat-wave 560ms ease-in-out;
-}
-
-@keyframes octocat-wave {
-  0%,
-  100% {
-    transform: rotate(0);
-  }
-  20%,
-  60% {
-    transform: rotate(-25deg);
-  }
-  40%,
-  80% {
-    transform: rotate(10deg);
-  }
-}
-
-@media (max-width: 500px) {
-  .github-corner:hover .octo-arm {
-    animation: none;
-  }
-  .github-corner .octo-arm {
-    animation: octocat-wave 560ms ease-in-out;
-  }
-}
-
-/* Custom Lil-gui style override to blend it with dark premium UI */
 .lil-gui {
   --background-color: rgba(15, 23, 42, 0.85) !important;
   --text-color: #e2e8f0 !important;
@@ -69,7 +40,9 @@ body {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.5), 0 8px 10px -6px rgb(0 0 0 / 0.5);
+  box-shadow:
+    0 20px 25px -5px rgb(0 0 0 / 0.5),
+    0 8px 10px -6px rgb(0 0 0 / 0.5);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
