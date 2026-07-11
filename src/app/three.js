@@ -34,13 +34,16 @@ export default class Sketch {
 
     this.container.append(this.renderer.domElement);
 
-    this.camera = new THREE.PerspectiveCamera(70, 1, 0.01, 100);
+    this.camera = new THREE.PerspectiveCamera(70, this.width / Math.max(this.height, 1), 0.01, 100);
 
     // Mouse parallax tracking
     this.target = new THREE.Vector2(0, 0);
     this.mouse = new THREE.Vector2(0, 0);
 
-    this.camera.position.set(0, 0, 1.4);
+    // Fixed framing — model keeps the same screen size on every viewport
+    this.baseFov = 70;
+    this.baseCameraZ = 1.8;
+    this.camera.position.set(0, 0, this.baseCameraZ);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.time = 0;
 
@@ -150,10 +153,21 @@ export default class Sketch {
     };
   }
 
-  getSquareRTSize() {
-    // Square RT keeps the model undistorted inside the circular mask
-    const maxDim = Math.max(this.width, this.height);
-    return Math.min(2048, Math.max(512, Math.floor(maxDim)));
+  // Keep model the same on-screen size: frame against the shorter viewport side
+  updateCameraFraming() {
+    const aspect = this.width / this.height;
+    this.camera.aspect = aspect;
+    this.camera.position.set(0, 0, this.baseCameraZ);
+
+    if (aspect >= 1) {
+      this.camera.fov = this.baseFov;
+    } else {
+      // Portrait: match horizontal FOV to landscape's vertical FOV
+      const half = (this.baseFov * Math.PI) / 360;
+      this.camera.fov = (2 * Math.atan(Math.tan(half) / aspect) * 180) / Math.PI;
+    }
+
+    this.camera.updateProjectionMatrix();
   }
 
   updatePlaneScale() {
@@ -180,17 +194,16 @@ export default class Sketch {
     // false = don't write inline canvas CSS (styles.css already fills the viewport)
     this.renderer.setSize(this.width, this.height, false);
 
-    // Model is rendered into a square target → keep camera aspect square
-    this.camera.aspect = 1;
-    this.camera.position.set(0, 0, 1.4);
-    this.camera.updateProjectionMatrix();
+    this.updateCameraFraming();
 
-    const rtSize = this.getSquareRTSize();
+    // RT matches viewport aspect so the model is never stretched when composited
     if (this.renderTarget) {
-      this.renderTarget.setSize(rtSize, rtSize);
+      this.renderTarget.setSize(this.width / 4, this.height / 4);
+      this.renderTarget.texture.minFilter = THREE.NearestFilter;
+      this.renderTarget.texture.magFilter = THREE.NearestFilter;
     }
     if (this.aberratedTarget) {
-      this.aberratedTarget.setSize(rtSize, rtSize);
+      this.aberratedTarget.setSize(this.width / 2, this.height / 2);
     }
 
     const aspect = this.width / this.height;
@@ -213,15 +226,14 @@ export default class Sketch {
   }
 
   initPost() {
-    const rtSize = this.getSquareRTSize();
-    this.aberratedTarget = new THREE.WebGLRenderTarget(rtSize, rtSize);
+    this.aberratedTarget = new THREE.WebGLRenderTarget(this.width / 2, this.height / 2);
 
     // Aberration applied as a full-screen quad BEFORE the circle/grain finalScene
     // This ensures aberration is only on the model, NOT the white circle border
     this.effectPass1 = new THREE.ShaderMaterial({
       uniforms: {
         tDiffuse: { value: null },
-        distort: { value: 0.01 },
+        distort: { value: 0.02 },
         time: { value: 0 }
       },
       vertexShader: AberrationShader.vertexShader,
@@ -234,8 +246,15 @@ export default class Sketch {
   }
 
   addObjects() {
-    const rtSize = this.getSquareRTSize();
-    this.renderTarget = new THREE.WebGLRenderTarget(rtSize, rtSize);
+    this.renderTarget = new THREE.WebGLRenderTarget(this.width / 2, this.height / 2);
+    this.renderTarget.texture.minFilter = THREE.NearestFilter;
+    this.renderTarget.texture.magFilter = THREE.NearestFilter;
+
+    const texture = new THREE.TextureLoader().load(modelTexture);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = this.renderer.capabilities.getMaxAnisotropy();
+    texture.needsUpdate = true;
+
     this.material = new THREE.ShaderMaterial({
       extensions: {
         derivatives: '#extension GL_OES_standard_derivatives : enable'
@@ -245,7 +264,7 @@ export default class Sketch {
         time: { value: 0 },
         progress: { value: 0 },
         resolution: { value: new THREE.Vector4() },
-        uTexture: { value: new THREE.TextureLoader().load(modelTexture) }
+        uTexture: { value: texture }
       },
       vertexShader: vertex,
       fragmentShader: fragment
@@ -281,10 +300,6 @@ export default class Sketch {
           mesh.position.x -= center.x;
           mesh.position.y -= center.y;
           mesh.position.z -= center.z;
-
-          // 5. Nudge model diagonally up-right
-          mesh.position.y += 0.08;
-          mesh.position.x += 0.07;
 
           // 5. Apply material to all child meshes
           mesh.traverse((child) => {

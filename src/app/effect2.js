@@ -55,7 +55,7 @@ export let AberrationShader = {
 
     void main() {
       vec4 final = texture2D(tDiffuse, vUv);
-      float rgbshift = 0.01;
+      float rgbshift = 0.018;
       vec2 uv = vUv;
 
       vec2 r_uv = vec2(
