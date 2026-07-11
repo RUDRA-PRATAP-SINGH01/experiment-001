@@ -29,7 +29,7 @@ void main() {
   gl_FragColor = c;
   gl_FragColor = grain;
 
-  vec2 uv_display = vUv + uvOut * 0.1 + uvIn * .1 + (grain.rg - vec2(0.5)) * 0.1;
+  vec2 uv_display = vUv + uvOut * 0.1 + uvIn * .1 + (grain.rg - vec2(0.5)) * 0.1 * vUv.y;
 
   vec4 cc = texture2D(uTexture, uv_display);
 
