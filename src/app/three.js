@@ -27,14 +27,14 @@ export default class Sketch {
       // alpha: true
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.setSize(this.width, this.height);
+    this.renderer.setSize(this.width, this.height, false);
     this.renderer.setClearColor(0xffffff, 1);
-    this.renderer.physicallyCorrectLights = true;
+    // three r155+: use useLegacyLights instead of physicallyCorrectLights
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     this.container.append(this.renderer.domElement);
 
-    this.camera = new THREE.PerspectiveCamera(70, this.width / this.height, 0.01, 100);
+    this.camera = new THREE.PerspectiveCamera(70, 1, 0.01, 100);
 
     // Mouse parallax tracking
     this.target = new THREE.Vector2(0, 0);
@@ -90,15 +90,17 @@ export default class Sketch {
       fragmentShader: fragmentQuad
     });
 
-    this.dummy = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 1.2), this.materialQuad);
+    // Full-screen plane — grain / edge effect covers the whole viewport
+    this.dummy = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.materialQuad);
     this.finalScene.add(this.dummy);
 
     this.blackBackground = new THREE.Mesh(
-      new THREE.PlaneGeometry(10, 10),
+      new THREE.PlaneGeometry(1, 1),
       new THREE.MeshBasicMaterial({ color: '#000000' })
     );
     this.blackBackground.position.z = -1;
     this.finalScene.add(this.blackBackground);
+    this.updatePlaneScale();
 
     // scroller.on((event) => {
     //   console.log(event);
@@ -117,7 +119,18 @@ export default class Sketch {
   }
 
   setupResize() {
-    window.addEventListener('resize', this.resize.bind(this));
+    this._onResize = () => {
+      if (this._resizeRaf) cancelAnimationFrame(this._resizeRaf);
+      this._resizeRaf = requestAnimationFrame(() => {
+        this._resizeRaf = null;
+        this.resize();
+      });
+    };
+    window.addEventListener('resize', this._onResize);
+    if (typeof ResizeObserver !== 'undefined') {
+      this._resizeObserver = new ResizeObserver(this._onResize);
+      this._resizeObserver.observe(this.container);
+    }
   }
 
   mouseEvents() {
@@ -128,42 +141,80 @@ export default class Sketch {
     });
   }
 
-  resize() {
-    this.width = this.container.offsetWidth;
-    this.height = this.container.offsetHeight;
-    this.renderer.setSize(this.width, this.height);
+  getViewportSize() {
+    const width = this.container.clientWidth || window.innerWidth;
+    const height = this.container.clientHeight || window.innerHeight;
+    return {
+      width: Math.max(1, Math.floor(width)),
+      height: Math.max(1, Math.floor(height))
+    };
+  }
 
-    this.camera.aspect = this.width / this.height;
+  getSquareRTSize() {
+    // Square RT keeps the model undistorted inside the circular mask
+    const maxDim = Math.max(this.width, this.height);
+    return Math.min(2048, Math.max(512, Math.floor(maxDim)));
+  }
+
+  updatePlaneScale() {
+    if (!this.dummy) return;
+
+    // Ortho frustum is (-aspect..aspect) x (-1..1) → fill with a 2x2 plane
+    const aspect = this.width / this.height;
+    this.dummy.scale.set(aspect, 1, 1);
+
+    if (this.blackBackground) {
+      this.blackBackground.scale.set(aspect * 2.5, 2.5, 1);
+    }
+  }
+
+  resize() {
+    const { width, height } = this.getViewportSize();
+    if (width === this._lastWidth && height === this._lastHeight) return;
+    this._lastWidth = width;
+    this._lastHeight = height;
+    this.width = width;
+    this.height = height;
+
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // false = don't write inline canvas CSS (styles.css already fills the viewport)
+    this.renderer.setSize(this.width, this.height, false);
+
+    // Model is rendered into a square target → keep camera aspect square
+    this.camera.aspect = 1;
     this.camera.position.set(0, 0, 1.4);
     this.camera.updateProjectionMatrix();
 
+    const rtSize = this.getSquareRTSize();
     if (this.renderTarget) {
-      this.renderTarget.setSize(this.width / 2, this.height / 2);
+      this.renderTarget.setSize(rtSize, rtSize);
     }
     if (this.aberratedTarget) {
-      this.aberratedTarget.setSize(this.width / 2, this.height / 2);
+      this.aberratedTarget.setSize(rtSize, rtSize);
     }
 
-    // Final ortho camera adjusts for window aspect so the quad fills correctly
-    const windowAspect = this.width / this.height;
+    const aspect = this.width / this.height;
     if (this.finalCamera) {
-      this.finalCamera.left = -1 * windowAspect;
-      this.finalCamera.right = 1 * windowAspect;
+      this.finalCamera.left = -aspect;
+      this.finalCamera.right = aspect;
+      this.finalCamera.top = 1;
+      this.finalCamera.bottom = -1;
       this.finalCamera.updateProjectionMatrix();
     }
 
-    console.log('resize calculations - width: ' + this.width + ' height: ' + this.height);
+    this.updatePlaneScale();
 
     if (this.materialQuad && this.materialQuad.uniforms.resolution) {
-      this.materialQuad.uniforms.resolution.value.set(this.width, this.height, 1, 1);
+      this.materialQuad.uniforms.resolution.value.set(this.width, this.height, aspect, 1 / aspect);
     }
     if (this.material && this.material.uniforms.resolution) {
-      this.material.uniforms.resolution.value.set(this.width, this.height, 1, 1);
+      this.material.uniforms.resolution.value.set(this.width, this.height, aspect, 1 / aspect);
     }
   }
 
   initPost() {
-    this.aberratedTarget = new THREE.WebGLRenderTarget(this.width / 2, this.height / 2);
+    const rtSize = this.getSquareRTSize();
+    this.aberratedTarget = new THREE.WebGLRenderTarget(rtSize, rtSize);
 
     // Aberration applied as a full-screen quad BEFORE the circle/grain finalScene
     // This ensures aberration is only on the model, NOT the white circle border
@@ -183,7 +234,8 @@ export default class Sketch {
   }
 
   addObjects() {
-    this.renderTarget = new THREE.WebGLRenderTarget(this.width / 2, this.height / 2);
+    const rtSize = this.getSquareRTSize();
+    this.renderTarget = new THREE.WebGLRenderTarget(rtSize, rtSize);
     this.material = new THREE.ShaderMaterial({
       extensions: {
         derivatives: '#extension GL_OES_standard_derivatives : enable'
@@ -287,8 +339,8 @@ export default class Sketch {
 
     this.target.lerp(this.mouse, 0.05);
 
-    this.finalScene.position.y = this.target.y / 5;
-    this.finalScene.position.x = this.target.x / 5;
+    // Keep the fullscreen effect plane pinned; only the model parallaxes
+    this.finalScene.position.set(0, 0, 0);
 
     this.scene.position.x = -this.target.x / 3;
     this.scene.position.y = -this.target.y / 3;
