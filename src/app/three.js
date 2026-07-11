@@ -40,7 +40,7 @@ export default class Sketch {
     this.target = new THREE.Vector2(0, 0);
     this.mouse = new THREE.Vector2(0, 0);
 
-    this.camera.position.set(0, 0, 1.25);
+    this.camera.position.set(0, 0, 1.4);
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.time = 0;
 
@@ -134,7 +134,7 @@ export default class Sketch {
     this.renderer.setSize(this.width, this.height);
 
     this.camera.aspect = this.width / this.height;
-    this.camera.position.set(0, 0, 1.25);
+    this.camera.position.set(0, 0, 1.4);
     this.camera.updateProjectionMatrix();
 
     if (this.renderTarget) {
