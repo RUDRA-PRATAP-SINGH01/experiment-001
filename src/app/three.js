@@ -1,16 +1,16 @@
-import * as THREE from 'three';
-import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import * as THREE from "three";
+import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 
-import chamberStreak from '../shaders/chamberStreak.glsl';
-import fragment from '../shaders/fragment.glsl';
-import fragmentQuad from '../shaders/fragmentQuad.glsl';
-import vertex from '../shaders/vertex.glsl';
-import { AberrationShader } from './effect2.js';
+import chamberStreak from "../shaders/chamberStreak.glsl";
+import fragment from "../shaders/fragment.glsl";
+import fragmentQuad from "../shaders/fragmentQuad.glsl";
+import vertex from "../shaders/vertex.glsl";
+import { AberrationShader } from "./effect2.js";
 
-const model = '/copilot.glb';
-const modelTexture = '/model@2x.jpg.webp';
-const grain = '/gr-2@mob.jpg.webp';
+const model = "/copilot.glb";
+const modelTexture = "/model@2x.jpg.webp";
+const grain = "/gr-2@mob.jpg.webp";
 const MODEL_TARGET_SIZE = 1.78;
 
 export default class Sketch {
@@ -23,7 +23,7 @@ export default class Sketch {
 
     this.renderer = new THREE.WebGLRenderer({
       antialias: true,
-      alpha: true
+      alpha: true,
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(this.width, this.height);
@@ -36,7 +36,7 @@ export default class Sketch {
       70,
       this.width / Math.max(this.height, 1),
       0.01,
-      100
+      100,
     );
 
     this.target = new THREE.Vector2(0, 0);
@@ -55,7 +55,7 @@ export default class Sketch {
     this.renderTarget = new THREE.WebGLRenderTarget(rt.w, rt.h);
 
     this.dracoLoader = new DRACOLoader();
-    this.dracoLoader.setDecoderPath('/draco/gltf/');
+    this.dracoLoader.setDecoderPath("/draco/gltf/");
     this.gltf = new GLTFLoader();
     this.gltf.setDRACOLoader(this.dracoLoader);
 
@@ -75,7 +75,7 @@ export default class Sketch {
     const rt = this.getRTSize();
     this.streakTarget = new THREE.WebGLRenderTarget(rt.w, rt.h, {
       minFilter: THREE.LinearFilter,
-      magFilter: THREE.LinearFilter
+      magFilter: THREE.LinearFilter,
     });
 
     this._chamberGeo = new THREE.PlaneGeometry(2, 2);
@@ -83,19 +83,19 @@ export default class Sketch {
     this.chamberUniforms = {
       time: { value: 0 },
       uLayer: { value: 0 },
-      resolution: { value: new THREE.Vector4() }
+      resolution: { value: new THREE.Vector4() },
     };
 
     this.chamberMaterial = new THREE.ShaderMaterial({
       extensions: {
-        derivatives: '#extension GL_OES_standard_derivatives : enable'
+        derivatives: "#extension GL_OES_standard_derivatives : enable",
       },
       transparent: true,
       depthWrite: false,
       side: THREE.DoubleSide,
       uniforms: this.chamberUniforms,
       vertexShader: vertex,
-      fragmentShader: chamberStreak
+      fragmentShader: chamberStreak,
     });
 
     this.chamberScene = new THREE.Scene();
@@ -133,14 +133,14 @@ export default class Sketch {
       1,
       -1,
       -100,
-      100
+      100,
     );
 
     const grainTexture = new THREE.TextureLoader().load(grain);
 
     this.materialQuad = new THREE.ShaderMaterial({
       extensions: {
-        derivatives: '#extension GL_OES_standard_derivatives : enable'
+        derivatives: "#extension GL_OES_standard_derivatives : enable",
       },
       side: THREE.DoubleSide,
       uniforms: {
@@ -148,25 +148,28 @@ export default class Sketch {
         resolution: { value: new THREE.Vector4() },
         uTexture: { value: null },
         uStreakEnv: { value: null },
-        uGrain: { value: grainTexture }
+        uGrain: { value: grainTexture },
       },
       transparent: true,
       depthWrite: false,
       vertexShader: vertex,
-      fragmentShader: fragmentQuad
+      fragmentShader: fragmentQuad,
     });
 
-    this.dummy = new THREE.Mesh(this._chamberGeo || new THREE.PlaneGeometry(2, 2), this.materialQuad);
+    this.dummy = new THREE.Mesh(
+      this._chamberGeo || new THREE.PlaneGeometry(2, 2),
+      this.materialQuad,
+    );
     this.finalScene.add(this.dummy);
     this.updatePlaneScale();
   }
 
   setupResize() {
-    window.addEventListener('resize', this.resize.bind(this));
+    window.addEventListener("resize", this.resize.bind(this));
   }
 
   mouseEvents() {
-    window.addEventListener('pointermove', (e) => {
+    window.addEventListener("pointermove", (e) => {
       const rect = this.container.getBoundingClientRect();
       const w = Math.max(rect.width, 1);
       const h = Math.max(rect.height, 1);
@@ -175,12 +178,12 @@ export default class Sketch {
       this.pointerActive = true;
     });
 
-    window.addEventListener('pointerleave', () => {
+    window.addEventListener("pointerleave", () => {
       this.pointerActive = false;
       this.mouse.set(0, 0);
     });
 
-    document.addEventListener('mouseleave', () => {
+    document.addEventListener("mouseleave", () => {
       this.pointerActive = false;
       this.mouse.set(0, 0);
     });
@@ -246,19 +249,26 @@ export default class Sketch {
       uniforms: {
         tDiffuse: { value: null },
         distort: { value: 0.01 },
-        time: { value: 0 }
+        time: { value: 0 },
       },
       vertexShader: AberrationShader.vertexShader,
-      fragmentShader: AberrationShader.fragmentShader
+      fragmentShader: AberrationShader.fragmentShader,
     });
 
     const aberrationQuad = new THREE.Mesh(
       this._chamberGeo || new THREE.PlaneGeometry(2, 2),
-      this.effectPass1
+      this.effectPass1,
     );
     this.aberrationScene = new THREE.Scene();
     this.aberrationScene.add(aberrationQuad);
-    this.aberrationCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, -100, 100);
+    this.aberrationCamera = new THREE.OrthographicCamera(
+      -1,
+      1,
+      1,
+      -1,
+      -100,
+      100,
+    );
   }
 
   centerObject(object) {
@@ -275,7 +285,7 @@ export default class Sketch {
   addObjects() {
     this.material = new THREE.ShaderMaterial({
       extensions: {
-        derivatives: '#extension GL_OES_standard_derivatives : enable'
+        derivatives: "#extension GL_OES_standard_derivatives : enable",
       },
       side: THREE.FrontSide,
       uniforms: {
@@ -285,12 +295,12 @@ export default class Sketch {
         uTexture: {
           value: new THREE.TextureLoader().load(modelTexture, (tex) => {
             tex.colorSpace = THREE.SRGBColorSpace;
-          })
+          }),
         },
-        uStreakEnv: { value: null }
+        uStreakEnv: { value: null },
       },
       vertexShader: vertex,
-      fragmentShader: fragment
+      fragmentShader: fragment,
     });
 
     this.gltf.load(
@@ -332,8 +342,8 @@ export default class Sketch {
       },
       undefined,
       (error) => {
-        console.error('An error occurred loading the model:', error);
-      }
+        console.error("An error occurred loading the model:", error);
+      },
     );
   }
 
@@ -371,12 +381,15 @@ export default class Sketch {
     this.scene.position.set(0, 0, 0);
     this.finalScene.position.set(0, 0, 0);
 
-    if (!this.effectPass1 || !this.aberrationScene || !this.aberrationCamera) return;
+    if (!this.effectPass1 || !this.aberrationScene || !this.aberrationCamera)
+      return;
 
     // 0) Emerald glass streak environment (back + mid)
     this.renderStreakEnv();
-    if (this.material) this.material.uniforms.uStreakEnv.value = this.streakTarget.texture;
-    if (this.materialQuad) this.materialQuad.uniforms.uStreakEnv.value = this.streakTarget.texture;
+    if (this.material)
+      this.material.uniforms.uStreakEnv.value = this.streakTarget.texture;
+    if (this.materialQuad)
+      this.materialQuad.uniforms.uStreakEnv.value = this.streakTarget.texture;
 
     // 1) Model → RT
     this.renderer.setRenderTarget(this.renderTarget);
